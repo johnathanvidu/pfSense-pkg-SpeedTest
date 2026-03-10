@@ -1,0 +1,11 @@
+pfSense-pkg-speedtest integrates the Ookla Speedtest CLI into the pfSense
+web GUI, providing on-demand and scheduled internet speed testing directly
+from the Services menu. Results include download speed, upload speed, ping
+latency, and jitter, along with Ookla server information. Up to 14 historical
+results are retained and displayed in a sortable table.
+
+This package requires acceptance of the Ookla End User License Agreement
+(https://www.speedtest.net/about/eula) and Privacy Policy before running tests.
+The Ookla Speedtest name and service are trademarks of Ookla, LLC.
+
+WWW: https://github.com/johnathanvidu/pfSense-pkg-SpeedTest

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE packagegui SYSTEM "../schema/packages.dtd">
+<?xml-stylesheet type="text/xsl" href="../xsl/package.xsl"?>
+<packagegui>
+	<name>speedtest</name>
+	<version>1.0.0</version>
+	<title>Services: Speed Test</title>
+	<include_file>/usr/local/pkg/speedtest.inc</include_file>
+	<pkginfolink>https://github.com/johnathanvidu/pfSense-pkg-SpeedTest</pkginfolink>
+
+	<menu>
+		<name>Speed Test</name>
+		<tooltiptext>Run and schedule internet speed tests via Ookla Speedtest CLI</tooltiptext>
+		<section>Services</section>
+		<url>/speedtest/speedtest.php</url>
+	</menu>
+
+	<custom_php_install_command>
+		speedtest_install();
+	</custom_php_install_command>
+
+	<custom_php_deinstall_command>
+		speedtest_deinstall();
+	</custom_php_deinstall_command>
+
+	<custom_php_validation_command>
+		speedtest_validate_input($_POST, $input_errors);
+	</custom_php_validation_command>
+</packagegui>

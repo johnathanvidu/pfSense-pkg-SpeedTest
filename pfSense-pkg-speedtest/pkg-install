@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# pkg-install — post-install / pre-deinstall hook for pfSense-pkg-speedtest
+#
+# Invoked by pkgng at install and deinstall time.
+# %%PREFIX%% is substituted by the ports framework (SUB_FILES=pkg-install).
+#
+# $1 = package name, $2 = phase (POST-INSTALL or PRE-DEINSTALL)
+
+PRIV_SRC="%%PREFIX%%/share/pfSense-pkg-speedtest/speedtest.priv.inc"
+PRIV_DST="/etc/inc/priv/speedtest.priv.inc"
+
+case "$2" in
+    POST-INSTALL)
+        mkdir -p /etc/inc/priv
+        install -m 0644 "${PRIV_SRC}" "${PRIV_DST}"
+        ;;
+    PRE-DEINSTALL)
+        rm -f "${PRIV_DST}"
+        ;;
+esac

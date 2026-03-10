@@ -1,0 +1,60 @@
+# vagrant/Vagrantfile — FreeBSD 14.x build VM for pfSense-pkg-speedtest
+#
+# Provider: vagrant-qemu (wraps QEMU directly — no VirtualBox/Parallels needed)
+#
+# ── Setup (one-time) ─────────────────────────────────────────────────────────
+#   brew install vagrant
+#   vagrant plugin install vagrant-qemu
+#   cd /path/to/speedtest/vagrant && vagrant up        (~5 min first run)
+#
+# ── Architecture note ────────────────────────────────────────────────────────
+# The generic/freebsd14 box ships x86_64 images.  On Apple Silicon (M1/M2)
+# QEMU runs x86_64 via software emulation — no HVF for cross-arch, so startup
+# is slow (~3–5 min) but the resulting .pkg is identical regardless of host CPU.
+# On Intel Mac, QEMU uses HVF for near-native speed.
+#
+# The package itself is NO_ARCH (pure PHP + shell), so the build-host CPU has
+# no effect on the output .pkg.
+#
+# ── Usage ────────────────────────────────────────────────────────────────────
+# Prefer the root Makefile targets — no need to cd into vagrant/:
+#   make build-vagrant              upload sources → build in VM → download .pkg
+#   make vagrant-up                 start (or create) the VM
+#   make vagrant-halt               suspend the VM
+#   make vagrant-destroy            delete VM entirely (frees ~4 GiB)
+
+APPLE_SILICON = RbConfig::CONFIG["host_cpu"] == "arm64"
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "generic/freebsd14"
+
+  # Disable the default /vagrant synced folder — file transfer is done via SCP.
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  config.vm.provider :qemu do |qemu|
+    if APPLE_SILICON
+      # M1/M2: cross-arch x86_64 emulation (no HVF acceleration)
+      qemu.arch    = "x86_64"
+      qemu.machine = "q35"
+      qemu.cpu     = "qemu64"
+    else
+      # Intel Mac: native x86_64 with HVF acceleration
+      qemu.arch    = "x86_64"
+      qemu.machine = "q35,accel=hvf"
+      qemu.cpu     = "host"
+    end
+
+    qemu.net_device = "virtio-net-pci"
+    qemu.memory     = "1536"
+    qemu.smp        = "cpus=2"
+    qemu.drive_type = "virtio"
+  end
+
+  # Bootstrap pkgng on first boot so `pkg create` is available.
+  config.vm.provision "shell", privileged: true, inline: <<-SHELL
+    set -e
+    ASSUME_ALWAYS_YES=yes pkg bootstrap -f
+    pkg update -f
+    echo "==> FreeBSD 14 build environment ready."
+  SHELL
+end

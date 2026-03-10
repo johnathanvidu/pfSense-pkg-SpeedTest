@@ -1,0 +1,81 @@
+# lima/freebsd14.yaml — FreeBSD 14.x build VM for pfSense-pkg-speedtest
+#
+# Target: pfSense 2.7.2 (based on FreeBSD 14.0-RELEASE, amd64)
+# Package is NO_BUILD + NO_ARCH (pure PHP + shell), so any FreeBSD 14.x
+# build host produces an identical .pkg.
+#
+# ── Lima requirements ────────────────────────────────────────────────────────
+# Lima v2.1+ is required for FreeBSD guests (experimental support added there).
+# As of March 2026, Lima 2.1 is in beta. Check if stable first:
+#
+#   brew install lima                      # installs stable (may be 2.0.x)
+#   limactl --version                      # check version
+#
+# If stable < 2.1, install the beta:
+#   brew install --head lima               # or grab the release from GitHub
+#
+# ── VM driver ────────────────────────────────────────────────────────────────
+# vmType MUST be qemu — FreeBSD does not boot with the vz (Virtualization.framework)
+# driver. On Apple Silicon, QEMU runs the aarch64 image natively via HVF.
+#
+# ── Image notes ──────────────────────────────────────────────────────────────
+# Lima requires BASIC-CLOUDINIT images for SSH key injection and provisioning.
+# FreeBSD 14.0 never shipped BASIC-CLOUDINIT images; 14.3-RELEASE is the
+# earliest 14.x release with them and is used here.
+# http is used (not https) — ftp-archive.freebsd.org doesn't serve HTTPS.
+#
+# ── Known issue: SSH key injection on FreeBSD ────────────────────────────────
+# Lima's cloud-config.yaml sets homedir = "/home/<user>" but FreeBSD uses
+# /usr/home (with /home -> /usr/home symlink). If cloud-init runs before
+# the symlink is created, key injection silently fails.
+#
+# Fix: lima-fix-ssh target uses the QEMU serial socket (no SSH needed) to
+# manually bootstrap the authorized_keys in a one-time step. Run once after
+# first `make vm-start`:
+#   make lima-fix-ssh
+#
+# Alternatively use the Vagrant path (vagrant/Vagrantfile) which avoids
+# cloud-init entirely — Vagrant boxes ship with a pre-provisioned vagrant user.
+#
+# ── Usage (via root Makefile — no need to call limactl directly) ─────────────
+#   make vm-start      create and start VM (first run provisions pkg)
+#   make build         upload sources → build .pkg in VM → download result
+#   make vm-stop       stop VM (preserves disk state)
+#   make vm-destroy    delete VM entirely (frees ~8 GiB)
+#
+# Manual:
+#   limactl start --name=freebsd14 lima/freebsd14.yaml
+#   limactl shell freebsd14
+#   limactl stop freebsd14
+
+minimumLimaVersion: "2.1.0"
+
+vmType: qemu
+os: FreeBSD
+
+images:
+  # Apple Silicon — aarch64 image runs natively under QEMU+HVF (full speed)
+  - location: "https://download.freebsd.org/releases/VM-IMAGES/14.3-RELEASE/aarch64/Latest/FreeBSD-14.3-RELEASE-arm64-aarch64-BASIC-CLOUDINIT-zfs.raw.xz"
+    arch: aarch64
+  # Intel Mac — x86_64 image runs natively under QEMU+HVF
+  - location: "https://download.freebsd.org/releases/VM-IMAGES/14.3-RELEASE/amd64/Latest/FreeBSD-14.3-RELEASE-amd64-BASIC-CLOUDINIT-zfs.raw.xz"
+    arch: x86_64
+
+cpus: 2
+memory: "1.5GiB"
+disk: "8GiB"
+
+# No filesystem mounts — sources are uploaded and results downloaded via
+# limactl cp (which wraps scp). This sidesteps FreeBSD's incomplete 9p/sshfs
+# support in the Lima guest agent.
+mounts: []
+
+# First-boot provisioning: bootstrap pkgng so `pkg create` is available.
+provision:
+  - mode: system
+    script: |
+      #!/bin/sh
+      set -e
+      ASSUME_ALWAYS_YES=yes pkg bootstrap -f
+      pkg update -f
+      echo "==> FreeBSD 14 build environment ready."
